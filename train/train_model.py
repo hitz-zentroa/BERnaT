@@ -29,11 +29,6 @@ class RunArguments():
         metadata={"help": "Maximum length of the input"}
     )
 
-    tokenizer_name: str = field(
-        default=None,
-        metadata={"help": "Tokenizer name or path"}
-    )
-
     reference_tokenizer_name: str = field(
         default=None,
         metadata={"help": "Reference tokenizer name or path"}
@@ -59,39 +54,9 @@ class RunArguments():
         metadata={"help": "Train from scratch"}
     )
 
-    train_tokenizer: bool = field(
-        default=True,
-        metadata={"help": "Train tokenizer"}
-    )
-
-    torch_compile: bool = field(
-        default=False,
-        metadata={"help": "Compile"}
-    )
-
-    early_stopping_patience: int = field(
-        default=20,
-        metadata={"help": "Early stopping patience"}
-    )
-
-    min_lr_ratio: float = field(
-        default=None,
-        metadata={"help": "Minimum learning rate ratio"}
-    )
-
-    min_learning_rate: float = field(
-        default=None,
-        metadata={"help": "Minimum learning rate"}
-    )
-
-def load_model_tokenizer(model_name: str, tokenizer_name: str = None, from_scratch = True, **kwargs) -> Tuple[AutoModelForMaskedLM, AutoTokenizer]:
+def load_model(model_name: str, from_scratch = True, **kwargs) -> AutoModelForMaskedLM:
 
     logger.info("Loading model...")
-
-    if not tokenizer_name:
-        tokenizer_name = model_name
-
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
     if not from_scratch:
         model = AutoModelForMaskedLM.from_pretrained(model_name, **kwargs)
@@ -100,7 +65,7 @@ def load_model_tokenizer(model_name: str, tokenizer_name: str = None, from_scrat
 
         model = AutoModelForMaskedLM.from_config(config, **kwargs)
 
-    return model, tokenizer
+    return model
 
 def load_corpora(train_data) -> Tuple[Dataset, Dataset, Dataset]:
 
@@ -195,19 +160,14 @@ def group_texts(examples, block_size=512):
     # Concatenate all texts.
 
     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
-
     total_length = len(concatenated_examples[list(examples.keys())[0]])
 
     if total_length >= block_size:
-
         total_length = (total_length // block_size) * block_size
 
     result = {
-
         k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
-
         for k, t in concatenated_examples.items()
-
     }
 
     return result
@@ -215,24 +175,12 @@ def group_texts(examples, block_size=512):
 
 def main(trainingArguments: TrainingArguments, runArguments: RunArguments):
 
-    scheduler_kwargs = {}
-    if runArguments.min_lr_ratio is not None:
-        runArguments.min_learning_rate = trainingArguments.learning_rate * runArguments.min_lr_ratio
-        scheduler_kwargs["min_lr"] = runArguments.min_learning_rate
-    elif not runArguments.min_learning_rate is None:
-        scheduler_kwargs["min_lr"] = runArguments.min_learning_rate
+    data_path = "data"
+    tokenizer_path = "tokenizer"
+    os.makedirs(data_path, exist_ok=True)
+    os.makedirs(tokenizer_path, exist_ok=True)
 
-    trainingArguments.lr_scheduler_kwargs = scheduler_kwargs
-
-    data_path = "/leonardo/home/userexternal/eazurmen/scratch/BERnaT"
-
-    model, tokenizer = load_model_tokenizer(runArguments.model_name, runArguments.tokenizer_name, from_scratch=runArguments.from_scratch, attn_implementation=runArguments.attn_implementation)
-
-    if runArguments.torch_compile:
-            
-        logger.info("Compiling model...")
-
-        model = torch.compile(model, fullgraph=True, backend="inductor", mode="reduce-overhead")
+    model = load_model(runArguments.model_name, from_scratch=runArguments.from_scratch, attn_implementation=runArguments.attn_implementation)
 
     if Accelerator().is_main_process:
 
@@ -240,31 +188,28 @@ def main(trainingArguments: TrainingArguments, runArguments: RunArguments):
         if not os.path.exists(f"{data_path}/{runArguments.train_data}"):
             os.makedirs(f"{data_path}/{runArguments.train_data}")
             train_dataset, validation_dataset, test_dataset = load_corpora(runArguments.train_data)
-            if os.path.exists(f"tokenizer/{runArguments.train_data}"):
-                tokenizer = AutoTokenizer.from_pretrained(f"tokenizer/{runArguments.train_data}")
+            if not os.path.exists(f"{tokenizer_path}/{runArguments.train_data}"):
+                tokenizer = AutoTokenizer.from_pretrained(runArguments.reference_tokenizer_name)                
+                logger.info("Training tokenizer...")
+                tokenizer = tokenizer.train_new_from_iterator(train_dataset['text'], vocab_size=50005, min_frequency=5, show_progress=True, clean_up_tokenization_spaces=False)
+                tokenizer.save_pretrained(f"{tokenizer_path}/{runArguments.train_data}")
+                logger.info("Tokenizer trained and saved.")
+
+                # Calculate token/word ratio in test splits
+                inner_tokenizer = tokenizer._tokenizer
+                def token_word_ratio(subsplit):
+                    ratio_list = []
+                    for text in subsplit:
+                        if (tok:=(len(inner_tokenizer.encode(text).ids) - 2)) == 0 or (nltk:=(len(text.split()))) == 0:
+                            continue
+                        ratio_list.append(tok/nltk)
+                    return ratio_list
+                
+                logger.info("Calculating token/word ratio in test splits...")
+                for key in test_dataset.keys():
+                    logger.info(f"Token/word ratio in {key}: {sum(token_word_ratio(test_dataset[key]['text']))/len(test_dataset[key])}")
             else:
-                tokenizer = AutoTokenizer.from_pretrained(runArguments.reference_tokenizer_name)
-                if runArguments.train_tokenizer:
-                    logger.info("Training tokenizer...")
-                    
-                    tokenizer = tokenizer.train_new_from_iterator(train_dataset['text'], vocab_size=50005, min_frequency=5, show_progress=True, clean_up_tokenization_spaces=False)
-                    tokenizer.save_pretrained(f"tokenizer/{runArguments.train_data}")
-
-                    logger.info("Tokenizer trained and saved.")
-
-                    # Calculate token/word ratio in test splits
-                    inner_tokenizer = tokenizer._tokenizer
-                    def token_word_ratio(subsplit):
-                        ratio_list = []
-                        for text in subsplit:
-                            if (tok:=(len(inner_tokenizer.encode(text).ids) - 2)) == 0 or (nltk:=(len(text.split()))) == 0:
-                                continue
-                            ratio_list.append(tok/nltk)
-                        return ratio_list
-                    
-                    logger.info("Calculating token/word ratio in test splits...")
-                    for key in test_dataset.keys():
-                        logger.info(f"Token/word ratio in {key}: {sum(token_word_ratio(test_dataset[key]['text']))/len(test_dataset[key])}")
+                tokenizer = AutoTokenizer.from_pretrained(f"tokenizer/{runArguments.train_data}")
 
             logger.info("Preprocessing datasets...")
 
@@ -294,7 +239,7 @@ def main(trainingArguments: TrainingArguments, runArguments: RunArguments):
     chunked_validation_dataset = chunked_validation_dataset.shuffle(seed=trainingArguments.seed)
     chunked_test_dataset = chunked_test_dataset.shuffle(seed=trainingArguments.seed)
 
-    tokenizer = AutoTokenizer.from_pretrained(f"tokenizer/{runArguments.train_data}")
+    tokenizer = AutoTokenizer.from_pretrained(f"{tokenizer_path}/{runArguments.train_data}")
 
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=True, mlm_probability=0.15, return_tensors="pt")
 
@@ -331,7 +276,7 @@ if __name__ == "__main__":
 
     set_seed(trainingArguments.seed)
 
-    if Accelerator().is_main_process:
+    if Accelerator().is_main_process and trainingArguments.report_to == "wandb":
         run = wandb.init(project="BERnaT", name = trainingArguments.run_name)
 
     main(trainingArguments, runArguments)
