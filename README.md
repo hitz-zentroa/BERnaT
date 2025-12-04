@@ -33,6 +33,10 @@ building inclusive, generalizable language models.
 | base                |          75.42         |         71.28         |      73.76      |
 | large               |        **77.88**       |       **73.77**       |    **76.24**    |
 
+## Acknowledgments
+
+This work has been partially supported by the Basque Government (Research group funding IT1570-22 and IKER-GAITU project), the Spanish Ministry for Digital Transformation and Civil Service, and the EU-funded NextGenerationEU Recovery, Transformation and Resilience Plan (ILENIA project, 2022/TL22/00215335; and ALIA project). The project also received funding from the European Union’s Horizon Europe research and innovation program under Grant Agreement No 101135724, Topic HORIZON-CL4-2023-HUMAN-01-21 and DeepKnowledge (PID2021-127777OB-C21) founded by MCIN/AEI/10.13039/501100011033 and FEDER. Jaione Bengoetxea, Julen Etxaniz and Ekhi Azurmendi hold a PhD grant from the Basque Government (PRE_2024_1_0028, PRE_2024_2_0028 and PRE_2024_1_0035, respectively). Maite Heredia and Mikel Zubillaga hold a PhD grant from the University of the Basque Country UPV/EHU (PIF23/218 and PIF24/04, respectively). The models were trained on the Leonardo supercomputer at CINECA under the EuroHPC Joint Undertaking, project EHPC-EXT-2024E01-042.
+
 ## Citation:
 
 To cite our work, please use:
