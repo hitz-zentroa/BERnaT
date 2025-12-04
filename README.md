@@ -1,5 +1,7 @@
 # BERnaT: Basque Encoders for Representing Natural Textual Diversity
 
+Submitted to LREC 2026
+
 ## Abstract
 
 Language models depend on massive text corpora that are often filtered for quality, a process that can unintentionally
@@ -13,3 +15,36 @@ and diverse subsets to assess linguistic generalization. Results show that model
 diverse data consistently outperform those trained on standard corpora, improving performance across all task types
 without compromising standard benchmark accuracy. These findings highlight the importance of linguistic diversity in
 building inclusive, generalizable language models.
+
+## Results
+
+|                     | **AVG standard tasks** | **AVG diverse tasks** | **AVG overall** |
+|---------------------|:----------------------:|:---------------------:|:---------------:|
+| **BERnaT_standard** |                        |                       |                 |
+| medium              |          74.10         |         70.30         |      72.58      |
+| base                |          75.33         |         71.26         |      73.70      |
+| large               |          76.83         |         73.13         |      75.35      |
+| **BERnaT_diverse**  |                        |                       |                 |
+| medium              |          71.66         |         69.91         |      70.96      |
+| base                |          72.44         |         71.43         |      72.04      |
+| large               |          74.48         |         71.87         |      73.43      |
+| **BERnaT**          |                        |                       |                 |
+| medium              |          73.56         |         70.59         |      72.37      |
+| base                |          75.42         |         71.28         |      73.76      |
+| large               |        **77.88**       |       **73.77**       |    **76.24**    |
+
+## Citation:
+
+To cite our work, please use:
+
+```bibtex
+@misc{azurmendi2025bernatbasqueencodersrepresenting,
+      title={BERnaT: Basque Encoders for Representing Natural Textual Diversity}, 
+      author={Ekhi Azurmendi and Joseba Fernandez de Landa and Jaione Bengoetxea and Maite Heredia and Julen Etxaniz and Mikel Zubillaga and Ander Soraluze and Aitor Soroa},
+      year={2025},
+      eprint={2512.03903},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2512.03903}, 
+}
+```
